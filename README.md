@@ -1,6 +1,6 @@
 # Parcial_2_SPD
 
-2 Parcial SPD 1G Cristian Damian Posada Vargas.png
+IMAGEN.png
 
 # Descripcion:
 Este proyecto es un sistema de decteccion de de incendios que muestra temperatura actual y estacion del año.
