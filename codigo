@@ -1,1 +1,299 @@
+/*
+----------------------------------------CONSIGNA SISTEMA DE INCENDIOS--------------------------------------               
+OBJETIVO:
+  El objetivo de este proyecto es diseñar un sistema de incendio utilizando Arduino que pueda
+  detectar cambios de temperatura y activar un servo motor en caso de detectar un incendio.
+  Además, se mostrará la temperatura actual y la estación del año en un display LCD.
+
+
+COMPONENTES NECESARIOS:
+  Arduino UNO
+  Sensor de temperatura
+  Control remoto IR (Infrarrojo)
+  Display LCD (16x2 caracteres)
+  Servo motor
+  Cables y resistencias según sea necesario
+  Protoboard para realizar las conexiones
+  Dos leds.
+---------------------------------------------------------------------------------------------------------- 
+*/
+
+// Cristian Damian Posada Vargas
+// Sistema de alarma contr incendios
+
+// Librerias externas.
+#include <Servo.h>
+#include <LiquidCrystal.h>
+#include <IRremote.h>
+
+// Definicion de variables globales.
+#define SEN_TEMP 14
+#define SEN_INFRA 11
+#define SERVO_PIN 9
+#define LED_GREEN 12
+#define LED_RED 13
+
+
+// Definicion de mi objeto myServo y myScreen
+// Sumado a las variables de tipo flag
+Servo myServo;
+LiquidCrystal myScreen(7, 6, 5, 4, 3, 2);
+int systemOn = 0;
+int alarm = 1;
+int welcome = 0;
+int tempMaxFire = 60;
+
+
+// Prototipo de funciones
+void lcdWellOrBye(int col, int row, char* mess, int time);
+void lcd(int temp, int season);
+void alarmFire(void);
+int temperature(void);
+int sensorIr(void);
+int motionServo(void);
+int seasonsYear(void);
+int lightAlarm(int led, int light);
+
+
+void setup(){
+  
+  pinMode(LED_GREEN, OUTPUT);
+  pinMode(LED_RED, OUTPUT);
+  IrReceiver.begin(SEN_INFRA);
+  myServo.attach(SERVO_PIN);
+  myScreen.begin(16, 2);
+  Serial.begin(9600);
+  
+}
+
+
+void loop(){
+  
+  int temp = temperature();
+  int season = seasonsYear();
+  int control = sensorIr();
+  
+  if(systemOn){ // Solo entrará al if si systemOn es = 1.
+    
+    if(welcome == 0){ // Se saluda al usuario
+      
+      lcdWellOrBye(0, 0, "BIENVENIDO!!!", 2000);
+      myScreen.clear();
+      welcome ++; // Cambia valor para no mostrar el mensaje mas de una vez
+      
+    }
+    
+    if(temp >= tempMaxFire && alarm){ // Valores para activacion de alarma
+    
+      lightAlarm(LED_GREEN, LOW);
+      motionServo();
+      lightAlarm(LED_RED, HIGH);
+      alarmFire();
+      
+    }
+    else{
+    
+      lightAlarm(LED_RED, LOW);
+      
+    }
+    
+    lightAlarm(LED_GREEN, HIGH); // Pantalla principal del sistema
+    lcd(temp, season);
+    
+  }
+  else{
+    
+    lightAlarm(LED_GREEN, LOW); // Se apaga el sistema por completo
+    lightAlarm(LED_GREEN, LOW);
+    
+    if(welcome > 0){ // Se despide de usuario
+      
+      myScreen.clear();
+      lcdWellOrBye(0, 0, "HASTA LUEGO!!!", 2000);
+      welcome --; // Modifica el valor para solo despedirse una vez
+      myScreen.clear();
+      
+    }
+    
+    myScreen.clear(); 
+    lcdWellOrBye(4, 0, "SISTEMA", 900); // Mensaje de pantalla inactiva
+    lcdWellOrBye(4, 1, "APADAGO", 2000);
+    myScreen.clear();
+  
+  }
+  
+  delay(1000);
+ 
+}
+
+
+// Pantalla de saludo y despedida se pasan valores por referencia directa o indirecta
+// de izquierda a derecha los parametros son:
+// columna de comienzo de escritura, fila, mensaje y tiempo de duracion mensaje
+void lcdWellOrBye(int col, int row, char* mess, int time){
+  
+  myScreen.setCursor(col, row);
+  myScreen.print(mess);
+  delay(time);
+  
+}
+
+
+// Funcion encargada de devolver el valor de funcion map en este caso temperatura
+int temperature(void){
+  
+  int temp = analogRead(SEN_TEMP); // lectura de pin A0
+  
+  int dev = map(temp,20, 358, -40, 125);
+  
+  return dev;
+  
+}
+
+
+// Funcion encargade de devolver comando usado en el control IR segun programación
+int sensorIr(void){
+  
+  int dev = -1;
+  
+  while(IrReceiver.decode() != 0){ // Solo si IrRecive lee infrarojo
+    
+    int comand = IrReceiver.decodedIRData.command;
+    delay(500); // Espera para manejar el rebote de los botones de control
+    IrReceiver.resume();
+    
+    switch(comand){
+      
+      case 0:
+      systemOn = !systemOn; // Encendido o apagado de sistema
+      dev = 1;
+      break;
+      
+      case 2:
+      alarm = !alarm; // Apafado de alarma de incendio
+      dev = 1;
+      break;
+      
+    }
+    
+  }
+  
+  return dev;
+  
+}
+
+
+// Funcion envcargada de activar el servo motor segun angulos ya establecidos
+int motionServo(void){
+
+  myServo.write(90);
+  delay(900);
+  myServo.write(180);
+  delay(900);
+  
+}
+
+
+// Funcion encargada de devolver un valor de 1 a 5 para programar estaciones
+int seasonsYear(){
+
+  int temp = temperature();
+  int dev = 0;
+  
+  if(temp >= 28 && temp <= 43){
+    
+    dev = 4;
+    
+  }
+  else if(temp >= 18 && temp <= 27){
+  	
+    dev = 3;
+  
+  }
+  else if(temp >= 14 && temp <= 17){
+  	
+    dev = 2;
+  
+  }
+  else if(temp >= -4 && temp <= 13){
+  	
+    dev = 1;
+  
+  }
+  else{
+    
+    dev = 5;
+    
+  }
+  
+  return dev;
+  
+}
+
+
+// Funcion pantalla principal de sistema de clima y estación.
+// Parametros de izquierda a derecha temperatura leida y estacion leida
+void lcd(int temp, int season){
+  
+  myScreen.setCursor(0, 0);
+  myScreen.print("Temp C: ");
+  myScreen.print(temp);
+  myScreen.print(" ");
+  
+  if(season == 4){
+  	
+    myScreen.setCursor(0, 1);
+  	myScreen.print("Verano          ");
+    
+  }
+  else if(season == 3){
+  
+    myScreen.setCursor(0, 1); 
+  	myScreen.print("Primavera       ");
+    
+  }
+  else if(season == 2){
+  
+    myScreen.setCursor(0, 1);
+  	myScreen.print("Otonio          ");
+    
+  }
+  else if(season == 1){
+  
+    myScreen.setCursor(0, 1);
+  	myScreen.print("Invierno        ");
+    
+  }
+  else if(season == 5){
+  
+    myScreen.setCursor(0, 1);
+  	myScreen.print("Clima extremo   ");
+    
+  }
+
+}
+
+
+// Funcion de alarma de incendios
+void alarmFire(void){
+  
+  myScreen.clear();
+  myScreen.setCursor(3, 0);
+  myScreen.print("INCENDIO!!!");
+  delay(1000);
+  myScreen.setCursor(0, 1);
+  myScreen.print("LLAM. EMERGENCIA");
+  delay(1000);
+  myScreen.clear();
+
+}
+
+
+// Funcion de encendido o apagado de leds testigo de sistema.
+int lightAlarm(int led, int light){
+
+  digitalWrite(led, light);
+  delay(90);
+  
+}
 
