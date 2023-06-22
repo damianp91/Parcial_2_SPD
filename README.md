@@ -1,6 +1,6 @@
 # Parcial_2_SPD
 
-IMAGEN.png
+![IMAGEN](https://raw.githubusercontent.com/damianp91/Parcial_2_SPD/main/IMAGEN.png)
 
 # Descripcion:
 Este proyecto es un sistema de decteccion de de incendios que muestra temperatura actual y estacion del año.
